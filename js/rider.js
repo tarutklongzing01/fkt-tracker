@@ -115,7 +115,7 @@ function updateTrackingUI(payload) {
   latestUpdatedAt.textContent = formatThaiDateTime(timestamp);
   latestAccuracy.textContent = formatAccuracy(payload.accuracy);
   setStatusChip(selfStatus, "online", "ส่งข้อมูลแล้ว");
-  setMessage(riderMessage, "ส่งพิกัดล่าสุดไปยัง Firebase สำเร็จ", "success");
+  setMessage(riderMessage, "ระบบกำลังทำงาน..", "success");
 }
 
 async function syncPresence(online) {
