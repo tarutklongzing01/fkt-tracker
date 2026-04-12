@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FKT-TRACKER | แผงควบคุมแอดมิน</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="dashboard-page">
+    <div class="dashboard-shell">
+      <aside class="dashboard-sidebar">
+        <div class="sidebar-header sidebar-header--admin">
+          <div class="sidebar-header__meta">
+            <span class="eyebrow">FKT-TRACKER Admin</span>
+            <span class="sidebar-live-chip">Live Control</span>
+          </div>
+          <h1>ไรเดอร์ออนไลน์</h1>
+          <p id="admin-welcome" class="sidebar-header__welcome">กำลังตรวจสอบสิทธิ์...</p>
+        </div>
+
+        <section class="summary-grid">
+          <article class="summary-card summary-card--total">
+            <span class="summary-card__label">ทั้งหมด</span>
+            <strong id="total-count">0</strong>
+            <small class="summary-card__meta">ไรเดอร์ในระบบ</small>
+          </article>
+          <article class="summary-card summary-card--online">
+            <span class="summary-card__label">ออนไลน์</span>
+            <strong id="online-count">0</strong>
+            <small class="summary-card__meta">พร้อมติดตาม</small>
+          </article>
+          <article class="summary-card summary-card--offline">
+            <span class="summary-card__label">ออฟไลน์</span>
+            <strong id="offline-count">0</strong>
+            <small class="summary-card__meta">ยังไม่พร้อมใช้งาน</small>
+          </article>
+        </section>
+
+        <section class="sidebar-list-section">
+          <div class="section-head section-head--soft">
+            <div class="section-head__content">
+              <h2>รายชื่อไรเดอร์</h2>
+            </div>
+          </div>
+          <div id="rider-list" class="rider-list"></div>
+        </section>
+
+        <div class="sidebar-footer">
+          <button id="logout-button" class="button button--ghost" type="button">ออกจากระบบ</button>
+        </div>
+      </aside>
+
+      <main class="dashboard-main">
+        <header class="map-header">
+          <div>
+            <span class="eyebrow">Realtime Map</span>
+            <h2>ตำแหน่งไรเดอร์บน OpenStreetMap</h2>
+          </div>
+          <div id="map-updated" class="status-chip" data-state="neutral">รอข้อมูล</div>
+        </header>
+
+        <section class="panel-card map-panel">
+          <div id="admin-map" class="map-canvas"></div>
+        </section>
+      </main>
+    </div>
+
+    <div id="rider-editor-modal" class="modal-shell" hidden>
+      <div id="rider-editor-backdrop" class="modal-backdrop"></div>
+      <section class="modal-card editor-card" role="dialog" aria-modal="true" aria-labelledby="rider-editor-title">
+        <div class="section-head section-head--stack-mobile">
+          <div>
+            <h2 id="rider-editor-title">แก้ไขข้อมูลไรเดอร์</h2>
+            <span id="edit-rider-hint" class="hint">เลือกไรเดอร์จากรายการก่อน</span>
+          </div>
+          <button id="close-rider-editor" class="button button--ghost button--compact" type="button">ปิด</button>
+        </div>
+
+        <form id="rider-edit-form" class="admin-edit-form">
+          <label class="field">
+            <span>ชื่อไรเดอร์</span>
+            <input
+              id="edit-rider-name"
+              name="name"
+              type="text"
+              placeholder="เช่น สมชาย ใจดี"
+              maxlength="80"
+              disabled
+              required
+            />
+          </label>
+
+          <label class="field">
+            <span>รหัสไรเดอร์</span>
+            <input
+              id="edit-rider-code"
+              name="riderCode"
+              type="text"
+              placeholder="เช่น RD001"
+              maxlength="14"
+              autocomplete="off"
+              disabled
+              required
+            />
+          </label>
+
+          <div class="editor-actions">
+            <button id="save-rider-button" class="button button--primary" type="submit" disabled>บันทึกข้อมูล</button>
+            <button id="reset-rider-button" class="button button--ghost" type="button" disabled>คืนค่าเดิม</button>
+          </div>
+        </form>
+
+        <div id="edit-rider-message" class="message-box editor-message" role="status" aria-live="polite">
+          เลือกไรเดอร์เพื่อแก้ไขชื่อหรือรหัสประจำตัว
+        </div>
+      </section>
+    </div>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script type="module" src="/js/admin.js"></script>
+  </body>
+</html>

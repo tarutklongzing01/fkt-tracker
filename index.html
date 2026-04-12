@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FKT-TRACKER | ศูนย์ติดตามไรเดอร์</title>
+    <meta
+      name="description"
+      content="FKT-TRACKER ศูนย์ติดตามไรเดอร์และควบคุมงานส่งแบบเรียลไทม์สำหรับทีมปฏิบัติการ"
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="auth-page">
+    <main class="auth-shell">
+      <section class="hero-card hero-card--brand-only" aria-hidden="true">
+        <div class="brand-lockup">
+          <div class="brand-lockup__logo" aria-label="FKT logo">
+            <span class="brand-lockup__logo-text">
+              <span class="brand-lockup__logo-f">f</span><span class="brand-lockup__logo-k">k</span><span class="brand-lockup__logo-t">t</span>
+            </span>
+            <span class="brand-lockup__logo-dot"></span>
+          </div>
+        </div>
+        <p class="brand-caption">FKT-TRACKER</p>
+      </section>
+
+      <section class="panel-card auth-card">
+        <div class="panel-card__header">
+          <span class="eyebrow">FKT Access</span>
+          <h2>เข้าสู่ระบบปฏิบัติการ</h2>
+          <p>ใช้บัญชี Google หรืออีเมลองค์กรเพื่อเข้าสู่หน้าควบคุมสำหรับแอดมินและไรเดอร์</p>
+        </div>
+
+        <form id="login-form" class="auth-form">
+          <label class="field">
+            <span>อีเมล</span>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="name@example.com"
+              autocomplete="email"
+              required
+            />
+          </label>
+
+          <label class="field">
+            <span>รหัสผ่าน</span>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="กรอกรหัสผ่าน"
+              autocomplete="current-password"
+              required
+            />
+          </label>
+
+          <button id="login-button" class="button button--primary" type="submit">
+            เข้าสู่ระบบ
+          </button>
+        </form>
+
+        <div class="auth-divider" aria-hidden="true">
+          <span>หรือ</span>
+        </div>
+
+        <button id="google-login-button" class="button button--google" type="button">
+          <span class="button__icon">G</span>
+          เข้าสู่ระบบด้วย Google
+        </button>
+
+        <div id="login-message" class="message-box" role="status" aria-live="polite"></div>
+      </section>
+    </main>
+
+    <script type="module" src="/js/login.js"></script>
+  </body>
+</html>

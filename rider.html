@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FKT-TRACKER | หน้าไรเดอร์</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body class="dashboard-page">
+    <div class="rider-shell">
+      <section class="panel-card rider-info-card">
+        <div class="panel-card__header">
+          <span class="eyebrow">FKT-TRACKER Rider</span>
+          <h1 id="rider-name">กำลังตรวจสอบสิทธิ์...</h1>
+          <p id="rider-code-text">รหัสไรเดอร์: -</p>
+        </div>
+
+        <div class="stats-grid">
+          <article class="info-card">
+            <span>สถานะการส่งข้อมูล</span>
+            <strong id="tracking-status">รอเริ่มต้น</strong>
+          </article>
+          <article class="info-card">
+            <span>พิกัดล่าสุด</span>
+            <strong id="latest-coordinates">-</strong>
+          </article>
+          <article class="info-card">
+            <span>เวลาอัปเดตล่าสุด</span>
+            <strong id="latest-updated-at">-</strong>
+          </article>
+          <article class="info-card">
+            <span>ความแม่นยำ GPS</span>
+            <strong id="latest-accuracy">-</strong>
+          </article>
+        </div>
+
+        <div id="rider-message" class="message-box" role="status" aria-live="polite"></div>
+
+        <div class="rider-actions">
+          <span id="tracking-interval-text" class="subtle-text">
+            กำลังโหลดรอบการส่งตำแหน่ง...
+          </span>
+          <button id="logout-button" class="button button--ghost" type="button">
+            ออกจากระบบ
+          </button>
+        </div>
+      </section>
+
+      <section class="panel-card rider-map-panel">
+        <header class="map-header">
+          <div>
+            <span class="eyebrow">GPS Tracker</span>
+            <h2>ตำแหน่งปัจจุบันของคุณ</h2>
+          </div>
+          <div id="self-status" class="status-chip" data-state="neutral">ยังไม่ส่งข้อมูล</div>
+        </header>
+        <div id="rider-map" class="map-canvas"></div>
+      </section>
+    </div>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script type="module" src="/js/rider.js"></script>
+  </body>
+</html>
