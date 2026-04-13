@@ -5,7 +5,7 @@
     "users": {
       "$uid": {
         ".read": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
-        ".write": "auth != null && ((auth.uid === $uid && !data.exists() && newData.child('name').isString() && newData.child('name').val().matches(/^.{1,80}$/) && ((newData.child('role').val() === 'admin' && auth.token.email != null && auth.token.email === root.child('settings').child('adminEmail').val()) || (newData.child('role').val() === 'rider' && newData.child('riderCode').isString() && newData.child('riderCode').val().matches(/^RD[A-Z0-9]{1,12}$/)))) || (root.child('users').child(auth.uid).child('role').val() === 'admin' && data.exists() && newData.child('role').val() === data.child('role').val() && newData.child('name').isString() && newData.child('name').val().matches(/^.{1,80}$/) && ((data.child('role').val() === 'rider' && newData.child('riderCode').isString() && newData.child('riderCode').val().matches(/^RD[A-Z0-9]{1,12}$/)) || data.child('role').val() === 'admin')))"
+        ".write": "auth != null && ((auth.uid === $uid && !data.exists() && newData.child('name').isString() && newData.child('name').val().matches(/^.{1,80}$/) && ((newData.child('role').val() === 'admin' && auth.token.email != null && auth.token.email === root.child('settings').child('adminEmail').val()) || (newData.child('role').val() === 'rider' && newData.child('riderCode').isString() && newData.child('riderCode').val().matches(/^RD[A-Z0-9]{1,12}$/)))) || (root.child('users').child(auth.uid).child('role').val() === 'admin' && data.exists() && newData.val() === null && data.child('role').val() === 'rider') || (root.child('users').child(auth.uid).child('role').val() === 'admin' && data.exists() && newData.child('role').val() === data.child('role').val() && newData.child('name').isString() && newData.child('name').val().matches(/^.{1,80}$/) && ((data.child('role').val() === 'rider' && newData.child('riderCode').isString() && newData.child('riderCode').val().matches(/^RD[A-Z0-9]{1,12}$/)) || data.child('role').val() === 'admin')))"
       }
     },
     "settings": {
@@ -15,7 +15,7 @@
     "riders": {
       ".read": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'",
       "$uid": {
-        ".write": "auth != null && auth.uid === $uid && root.child('users').child(auth.uid).child('role').val() === 'rider'"
+        ".write": "auth != null && ((auth.uid === $uid && root.child('users').child(auth.uid).child('role').val() === 'rider') || (root.child('users').child(auth.uid).child('role').val() === 'admin' && newData.val() === null))"
       }
     }
   }

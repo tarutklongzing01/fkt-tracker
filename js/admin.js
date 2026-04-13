@@ -1,4 +1,5 @@
 import {
+  deleteRider as deleteRiderData,
   firebaseEnabled,
   getUserProfile,
   logout,
@@ -11,7 +12,6 @@ import {
   $,
   escapeHtml,
   formatCoordinates,
-  formatDurationThai,
   formatRelativeUpdate,
   formatThaiDateTime,
   getRiderMarkerIcon,
@@ -19,7 +19,6 @@ import {
   getRoleRedirect,
   getStatusLabel,
   isOnline,
-  OFFLINE_THRESHOLD_MS,
   renderEmptyState,
   setMessage,
   setStatusChip
@@ -33,7 +32,6 @@ const totalCount = $("#total-count");
 const onlineCount = $("#online-count");
 const offlineCount = $("#offline-count");
 const mapUpdatedChip = $("#map-updated");
-const offlineThresholdText = $("#offline-threshold-text");
 const riderEditForm = $("#rider-edit-form");
 const editRiderName = $("#edit-rider-name");
 const editRiderCode = $("#edit-rider-code");
@@ -56,12 +54,8 @@ let refreshTimerId = null;
 let unsubscribeRiders = null;
 let unsubscribeProfiles = null;
 let isSavingRider = false;
-let lastSelectedRiderId = null;
+let isDeletingRider = false;
 let suppressEditorAutoOpen = false;
-
-if (offlineThresholdText) {
-  offlineThresholdText.textContent = `สถานะออนไลน์อ้างอิงการ login/logout ของไรเดอร์ และจะใช้เวลาอัปเดตล่าสุดเป็นตัวช่วยสำรองเมื่อยังไม่มีสถานะ explicit`;
-}
 
 function initializeMap() {
   map = L.map("admin-map", {
@@ -95,10 +89,12 @@ function getActiveRider() {
 }
 
 function setEditorEnabled(enabled) {
-  editRiderName.disabled = !enabled || isSavingRider;
-  editRiderCode.disabled = !enabled || isSavingRider;
-  saveRiderButton.disabled = !enabled || isSavingRider;
-  resetRiderButton.disabled = !enabled || isSavingRider;
+  const isBusy = isSavingRider || isDeletingRider;
+
+  editRiderName.disabled = !enabled || isBusy;
+  editRiderCode.disabled = !enabled || isBusy;
+  saveRiderButton.disabled = !enabled || isBusy;
+  resetRiderButton.disabled = !enabled || isBusy;
 }
 
 function openEditorModal() {
@@ -119,7 +115,6 @@ function closeEditorModal(manual = false) {
 
 function fillEditorForm(rider) {
   if (!rider) {
-    lastSelectedRiderId = null;
     suppressEditorAutoOpen = false;
     editRiderName.value = "";
     editRiderCode.value = "";
@@ -130,7 +125,6 @@ function fillEditorForm(rider) {
     return;
   }
 
-  lastSelectedRiderId = rider.uid;
   editRiderName.value = rider.name || "";
   editRiderCode.value = rider.riderCode === "-" ? "" : rider.riderCode || "";
   editRiderHint.textContent = `กำลังแก้ไข ${rider.name || "ไรเดอร์"}`;
@@ -141,20 +135,17 @@ function fillEditorForm(rider) {
   }
 }
 
-function buildPopupContent(rider) {
-  return `
-    <div>
-      <p class="popup-title">${escapeHtml(rider.name)}</p>
-      <p class="popup-row"><span>รหัส:</span> ${escapeHtml(rider.riderCode)}</p>
-      <p class="popup-row"><span>พิกัด:</span> ${escapeHtml(
-        formatCoordinates(rider.lat, rider.lng)
-      )}</p>
-      <p class="popup-row"><span>เวลาอัปเดต:</span> ${escapeHtml(
-        formatThaiDateTime(rider.updatedAt)
-      )}</p>
-      <p class="popup-row"><span>สถานะ:</span> ${escapeHtml(getStatusLabel(rider.updatedAt, rider.online))}</p>
-    </div>
-  `;
+function hasUnsavedEditorChanges(rider = getActiveRider()) {
+  if (!rider) {
+    return false;
+  }
+
+  const currentName = editRiderName.value;
+  const currentCode = editRiderCode.value.trim().toUpperCase();
+  const riderName = rider.name || "";
+  const riderCode = rider.riderCode === "-" ? "" : rider.riderCode || "";
+
+  return currentName !== riderName || currentCode !== riderCode;
 }
 
 function buildRichPopupContent(rider) {
@@ -205,16 +196,17 @@ function upsertMarker(rider) {
     });
 
     markerState.set(rider.uid, marker);
-  } else {
-    marker.setLatLng([rider.lat, rider.lng]);
-    marker.setIcon(
-      getRiderMarkerIcon({
-        online
-      })
-    );
-    marker.setOpacity(online ? 1 : 0.7);
-    marker.setPopupContent(buildRichPopupContent(rider));
+    return;
   }
+
+  marker.setLatLng([rider.lat, rider.lng]);
+  marker.setIcon(
+    getRiderMarkerIcon({
+      online
+    })
+  );
+  marker.setOpacity(online ? 1 : 0.7);
+  marker.setPopupContent(buildRichPopupContent(rider));
 }
 
 function removeMissingMarkers() {
@@ -241,6 +233,63 @@ function fitMapToMarkers() {
   hasFittedBounds = true;
 }
 
+function createRiderCard(rider) {
+  const online = isOnline(rider.updatedAt, rider.online);
+  const actionDisabled = isSavingRider || isDeletingRider;
+
+  return `
+    <article
+      class="rider-item ${activeRiderId === rider.uid ? "is-active" : ""}"
+      data-rider-id="${escapeHtml(rider.uid)}"
+      tabindex="0"
+      role="button"
+      aria-label="โฟกัสไรเดอร์ ${escapeHtml(rider.name)} บนแผนที่"
+    >
+      <div class="rider-item__top">
+        <div>
+          <div class="rider-item__name">${escapeHtml(rider.name)}</div>
+          <div class="rider-item__code">รหัส ${escapeHtml(rider.riderCode)}</div>
+        </div>
+        <div class="rider-item__actions">
+          <span class="status-chip" data-state="${online ? "online" : "offline"}">
+            ${online ? "ออนไลน์" : "ออฟไลน์"}
+          </span>
+          <button
+            class="button rider-item__edit"
+            type="button"
+            data-edit-rider-id="${escapeHtml(rider.uid)}"
+            aria-label="แก้ไขข้อมูล ${escapeHtml(rider.name)}"
+            ${actionDisabled ? "disabled" : ""}
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 3.75a2.25 2.25 0 0 1 2.12 1.5l.18.53a1 1 0 0 0 .95.68h.56a2.25 2.25 0 0 1 1.95 1.13l.28.48a1 1 0 0 0 1.16.45l.55-.14a2.25 2.25 0 0 1 2.56 1.11a2.25 2.25 0 0 1-.32 2.77l-.4.4a1 1 0 0 0-.24 1.02l.15.55a2.25 2.25 0 0 1-1.12 2.56l-.48.28a1 1 0 0 0-.5.88v.56a2.25 2.25 0 0 1-1.5 2.12l-.53.18a1 1 0 0 0-.68.95v.56a2.25 2.25 0 0 1-2.25 2.25a2.25 2.25 0 0 1-2.12-1.5l-.18-.53a1 1 0 0 0-.95-.68h-.56a2.25 2.25 0 0 1-1.95-1.13l-.28-.48a1 1 0 0 0-1.16-.45l-.55.14a2.25 2.25 0 0 1-2.56-1.11a2.25 2.25 0 0 1 .32-2.77l.4-.4a1 1 0 0 0 .24-1.02l-.15-.55a2.25 2.25 0 0 1 1.12-2.56l.48-.28a1 1 0 0 0 .5-.88v-.56a2.25 2.25 0 0 1 1.5-2.12l.53-.18a1 1 0 0 0 .68-.95v-.56A2.25 2.25 0 0 1 12 3.75Z" stroke="currentColor" stroke-width="1.5"/>
+              <path d="M9.75 12a2.25 2.25 0 1 0 4.5 0a2.25 2.25 0 0 0-4.5 0Z" stroke="currentColor" stroke-width="1.5"/>
+            </svg>
+          </button>
+          <button
+            class="button rider-item__delete"
+            type="button"
+            data-delete-rider-id="${escapeHtml(rider.uid)}"
+            aria-label="ลบข้อมูล ${escapeHtml(rider.name)}"
+            ${actionDisabled ? "disabled" : ""}
+          >
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M4.5 7.5h15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M9.75 3.75h4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              <path d="M7.5 7.5v9.75A2.25 2.25 0 0 0 9.75 19.5h4.5a2.25 2.25 0 0 0 2.25-2.25V7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M10.5 10.5v5.25M13.5 10.5v5.25" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="rider-item__bottom">
+        <span>${escapeHtml(formatRelativeUpdate(rider.updatedAt))}</span>
+        <span>${escapeHtml(formatCoordinates(rider.lat, rider.lng))}</span>
+      </div>
+    </article>
+  `;
+}
+
 function renderSidebar() {
   const riders = getRidersForDisplay().sort((left, right) => {
     const onlineDiff =
@@ -264,47 +313,7 @@ function renderSidebar() {
     return;
   }
 
-  riderList.innerHTML = riders
-    .map((rider) => {
-      const online = isOnline(rider.updatedAt, rider.online);
-      return `
-        <article
-          class="rider-item ${activeRiderId === rider.uid ? "is-active" : ""}"
-          data-rider-id="${escapeHtml(rider.uid)}"
-          tabindex="0"
-          role="button"
-          aria-label="โฟกัสไรเดอร์ ${escapeHtml(rider.name)} บนแผนที่"
-        >
-          <div class="rider-item__top">
-            <div>
-              <div class="rider-item__name">${escapeHtml(rider.name)}</div>
-              <div class="rider-item__code">รหัส ${escapeHtml(rider.riderCode)}</div>
-            </div>
-            <div class="rider-item__actions">
-              <span class="status-chip" data-state="${online ? "online" : "offline"}">
-                ${online ? "ออนไลน์" : "ออฟไลน์"}
-              </span>
-              <button
-                class="button rider-item__edit"
-                type="button"
-                data-edit-rider-id="${escapeHtml(rider.uid)}"
-                aria-label="แก้ไขข้อมูล ${escapeHtml(rider.name)}"
-              >
-                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                  <path d="M12 3.75a2.25 2.25 0 0 1 2.12 1.5l.18.53a1 1 0 0 0 .95.68h.56a2.25 2.25 0 0 1 1.95 1.13l.28.48a1 1 0 0 0 1.16.45l.55-.14a2.25 2.25 0 0 1 2.56 1.11a2.25 2.25 0 0 1-.32 2.77l-.4.4a1 1 0 0 0-.24 1.02l.15.55a2.25 2.25 0 0 1-1.12 2.56l-.48.28a1 1 0 0 0-.5.88v.56a2.25 2.25 0 0 1-1.5 2.12l-.53.18a1 1 0 0 0-.68.95v.56a2.25 2.25 0 0 1-2.25 2.25a2.25 2.25 0 0 1-2.12-1.5l-.18-.53a1 1 0 0 0-.95-.68h-.56a2.25 2.25 0 0 1-1.95-1.13l-.28-.48a1 1 0 0 0-1.16-.45l-.55.14a2.25 2.25 0 0 1-2.56-1.11a2.25 2.25 0 0 1 .32-2.77l.4-.4a1 1 0 0 0 .24-1.02l-.15-.55a2.25 2.25 0 0 1 1.12-2.56l.48-.28a1 1 0 0 0 .5-.88v-.56a2.25 2.25 0 0 1 1.5-2.12l.53-.18a1 1 0 0 0 .68-.95v-.56A2.25 2.25 0 0 1 12 3.75Z" stroke="currentColor" stroke-width="1.5"/>
-                  <path d="M9.75 12a2.25 2.25 0 1 0 4.5 0a2.25 2.25 0 0 0-4.5 0Z" stroke="currentColor" stroke-width="1.5"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div class="rider-item__bottom">
-            <span>${escapeHtml(formatRelativeUpdate(rider.updatedAt))}</span>
-            <span>${escapeHtml(formatCoordinates(rider.lat, rider.lng))}</span>
-          </div>
-        </article>
-      `;
-    })
-    .join("");
+  riderList.innerHTML = riders.map((rider) => createRiderCard(rider)).join("");
 
   riderList.querySelectorAll("[data-rider-id]").forEach((card) => {
     const focusRider = () => {
@@ -349,6 +358,19 @@ function renderSidebar() {
     });
   });
 
+  riderList.querySelectorAll("[data-delete-rider-id]").forEach((button) => {
+    button.addEventListener("click", async (event) => {
+      event.stopPropagation();
+
+      const rider = riders.find((item) => item.uid === button.dataset.deleteRiderId);
+      if (!rider) {
+        return;
+      }
+
+      await handleRiderDelete(rider);
+    });
+  });
+
   const onlineRiderCount = riders.filter((rider) => isOnline(rider.updatedAt, rider.online)).length;
   setStatusChip(
     mapUpdatedChip,
@@ -372,7 +394,7 @@ function refreshView() {
     return;
   }
 
-  if (activeRiderId && !isSavingRider) {
+  if (activeRiderId && !isSavingRider && !isDeletingRider && !hasUnsavedEditorChanges()) {
     fillEditorForm(getActiveRider());
   }
 }
@@ -423,14 +445,67 @@ function validateRiderEditForm() {
   };
 }
 
+async function handleRiderDelete(rider) {
+  if (!rider || isDeletingRider) {
+    return;
+  }
+
+  const riderName = rider.name || "ไรเดอร์";
+  const riderCode = rider.riderCode || "-";
+  const confirmed = window.confirm(
+    `ยืนยันการลบ ${riderName} (${riderCode})?\nข้อมูลโปรไฟล์และตำแหน่งล่าสุดจะถูกลบออกจากระบบ`
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  isDeletingRider = true;
+  setEditorEnabled(Boolean(getActiveRider()));
+  setMessage(adminStatus, `กำลังลบ ${riderName} ออกจากระบบ...`, "neutral");
+
+  if (activeRiderId === rider.uid) {
+    setMessage(editRiderMessage, "กำลังลบข้อมูลไรเดอร์...", "neutral");
+  }
+
+  try {
+    await deleteRiderData(rider.uid);
+
+    riderProfileState.delete(rider.uid);
+    riderLocationState.delete(rider.uid);
+
+    const marker = markerState.get(rider.uid);
+    if (marker) {
+      map.removeLayer(marker);
+      markerState.delete(rider.uid);
+    }
+
+    if (activeRiderId === rider.uid) {
+      activeRiderId = null;
+      fillEditorForm(null);
+    }
+
+    suppressEditorAutoOpen = false;
+    setMessage(adminStatus, `ลบ ${riderName} เรียบร้อยแล้ว`, "success");
+    refreshView();
+  } catch (error) {
+    const message = error.message || "ไม่สามารถลบข้อมูลไรเดอร์ได้";
+
+    setMessage(adminStatus, message, "error");
+
+    if (activeRiderId === rider.uid) {
+      setMessage(editRiderMessage, message, "error");
+    }
+  } finally {
+    isDeletingRider = false;
+    setEditorEnabled(Boolean(getActiveRider()));
+  }
+}
+
 function ensureAdminAccess() {
   if (!firebaseEnabled) {
     adminWelcome.textContent = "ยังไม่ได้ตั้งค่า Firebase";
-    setMessage(
-      adminStatus,
-      "กรุณาแก้ไฟล์ firebase-config.js ก่อนใช้งานหน้านี้",
-      "error"
-    );
+    setMessage(adminStatus, "กรุณาแก้ไฟล์ firebase-config.js ก่อนใช้งานหน้านี้", "error");
     setStatusChip(mapUpdatedChip, "offline", "ยังไม่ได้ตั้งค่า");
     logoutButton.disabled = true;
     return;
@@ -446,7 +521,7 @@ function ensureAdminAccess() {
       const profile = await getUserProfile(user.uid);
 
       if (!profile?.role) {
-        setMessage(adminStatus, "ไม่พบสิทธิ์การใช้งานของผู้ใช้รายนี้", "error");
+        setMessage(adminStatus, "ไม่พบบทบาทการใช้งานของผู้ใช้นี้", "error");
         return;
       }
 
@@ -455,7 +530,7 @@ function ensureAdminAccess() {
         return;
       }
 
-      adminWelcome.textContent = `สวัสดี ${profile.name || "แอดมินรุต"}`;
+      adminWelcome.textContent = `สวัสดี ${profile.name || "แอดมิน"}`;
       setMessage(
         adminStatus,
         "กำลังฟังข้อมูลไรเดอร์สดจาก Firebase Realtime Database",
@@ -505,6 +580,7 @@ riderEditForm?.addEventListener("submit", async (event) => {
       name: result.name,
       riderCode: result.riderCode
     });
+
     fillEditorForm({
       ...rider,
       name: result.name,

@@ -167,6 +167,21 @@ export async function updateUserProfile(uid, payload) {
   await update(ref(db, `users/${uid}`), payload);
 }
 
+export async function deleteRider(uid) {
+  if (!db) {
+    throw new Error("เธขเธฑเธเนเธกเนเนเธ”เนเธ•เธฑเนเธเธเนเธฒ Firebase");
+  }
+
+  if (!uid) {
+    throw new Error("ไม่พบข้อมูลไรเดอร์ที่ต้องการลบ");
+  }
+
+  await update(ref(db), {
+    [`users/${uid}`]: null,
+    [`riders/${uid}`]: null
+  });
+}
+
 export async function setRiderPresence(uid, payload, online) {
   if (!db) {
     throw new Error("ยังไม่ได้ตั้งค่า Firebase");
