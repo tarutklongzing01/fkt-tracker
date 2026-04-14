@@ -445,6 +445,16 @@ function validateRiderEditForm() {
   };
 }
 
+function getDeleteRiderErrorMessage(error) {
+  const rawMessage = String(error?.message || "").trim();
+
+  if (rawMessage.includes("PERMISSION_DENIED")) {
+    return "ลบไม่สำเร็จเพราะ Firebase Rules ยังไม่อนุญาตให้แอดมินลบไรเดอร์ กรุณาอัปเดต Rules ล่าสุดก่อน";
+  }
+
+  return rawMessage || "ไม่สามารถลบข้อมูลไรเดอร์ได้";
+}
+
 async function handleRiderDelete(rider) {
   if (!rider || isDeletingRider) {
     return;
@@ -489,7 +499,7 @@ async function handleRiderDelete(rider) {
     setMessage(adminStatus, `ลบ ${riderName} เรียบร้อยแล้ว`, "success");
     refreshView();
   } catch (error) {
-    const message = error.message || "ไม่สามารถลบข้อมูลไรเดอร์ได้";
+    const message = getDeleteRiderErrorMessage(error);
 
     setMessage(adminStatus, message, "error");
 
