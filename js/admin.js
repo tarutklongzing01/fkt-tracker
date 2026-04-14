@@ -24,8 +24,21 @@ import {
   setStatusChip
 } from "./app.js";
 
+const HUB_J = {
+  name: "Hub J",
+  lat: 12.931992,
+  lng: 100.902712,
+  radiusMeters: 50,
+  alertMessage: "กรุณาเปิดไม้กั้น"
+};
+
+const HUB_J_ALERT_AUDIO_SRC = "/assets/mee-rot-ma.mp3";
+const HUB_J_AUDIO_STORAGE_KEY = "hub-j-alert-sound-enabled";
+
 const adminWelcome = $("#admin-welcome");
 const adminStatus = $("#admin-status");
+const hubJAlert = $("#hub-j-alert");
+const hubJAudioToggle = $("#hub-j-audio-toggle");
 const logoutButton = $("#logout-button");
 const riderList = $("#rider-list");
 const totalCount = $("#total-count");
@@ -46,8 +59,13 @@ const closeRiderEditorButton = $("#close-rider-editor");
 const riderLocationState = new Map();
 const riderProfileState = new Map();
 const markerState = new Map();
+const riderHubZoneState = new Map();
+const hubJAlertAudio = new Audio(HUB_J_ALERT_AUDIO_SRC);
+hubJAlertAudio.preload = "auto";
 
 let map;
+let hubJMarker;
+let hubJRadiusCircle;
 let hasFittedBounds = false;
 let activeRiderId = null;
 let refreshTimerId = null;
@@ -56,6 +74,8 @@ let unsubscribeProfiles = null;
 let isSavingRider = false;
 let isDeletingRider = false;
 let suppressEditorAutoOpen = false;
+let hasHubJAudioWarning = false;
+let isHubJAlertSoundEnabled = true;
 
 function initializeMap() {
   map = L.map("admin-map", {
@@ -65,6 +85,132 @@ function initializeMap() {
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     attribution: "&copy; OpenStreetMap contributors"
   }).addTo(map);
+
+  hubJRadiusCircle = L.circle([HUB_J.lat, HUB_J.lng], {
+    radius: HUB_J.radiusMeters,
+    color: "#f59e0b",
+    fillColor: "#fde68a",
+    fillOpacity: 0.16,
+    weight: 2
+  })
+    .addTo(map)
+    .bindPopup(`${HUB_J.name} (${HUB_J.radiusMeters} เมตร)`);
+
+  hubJMarker = L.circleMarker([HUB_J.lat, HUB_J.lng], {
+    radius: 8,
+    color: "#ffffff",
+    weight: 3,
+    fillColor: "#f59e0b",
+    fillOpacity: 1
+  })
+    .addTo(map)
+    .bindPopup(`${HUB_J.name}: ${HUB_J.alertMessage}`);
+}
+
+function unlockHubJAlertAudio() {
+  hubJAlertAudio.muted = true;
+
+  const playAttempt = hubJAlertAudio.play();
+  if (playAttempt?.catch) {
+    playAttempt.catch(() => {}).finally(() => {
+      hubJAlertAudio.pause();
+      hubJAlertAudio.currentTime = 0;
+      hubJAlertAudio.muted = false;
+    });
+    return;
+  }
+
+  hubJAlertAudio.pause();
+  hubJAlertAudio.currentTime = 0;
+  hubJAlertAudio.muted = false;
+}
+
+function playHubJAlertSound() {
+  if (!isHubJAlertSoundEnabled) {
+    return;
+  }
+
+  hubJAlertAudio.pause();
+  hubJAlertAudio.currentTime = 0;
+
+  const playAttempt = hubJAlertAudio.play();
+  if (playAttempt?.catch) {
+    playAttempt
+      .then(() => {
+        hasHubJAudioWarning = false;
+      })
+      .catch(() => {
+        if (hasHubJAudioWarning) {
+          return;
+        }
+
+        hasHubJAudioWarning = true;
+        setMessage(adminStatus, "เบราว์เซอร์บล็อกเสียงแจ้งเตือน กรุณาคลิกหน้าแอดมินหนึ่งครั้งเพื่อเปิดเสียง", "error");
+      });
+  }
+}
+
+function readHubJAlertSoundPreference() {
+  try {
+    return window.localStorage.getItem(HUB_J_AUDIO_STORAGE_KEY) !== "off";
+  } catch {
+    return true;
+  }
+}
+
+function speakerIconMarkup(enabled) {
+  if (enabled) {
+    return `
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M14.25 5.25L9.75 9H6a2.25 2.25 0 0 0-2.25 2.25v1.5A2.25 2.25 0 0 0 6 15h3.75l4.5 3.75V5.25Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+        <path d="M17.25 9.75a3 3 0 0 1 0 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M19.5 7.5a6 6 0 0 1 0 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    `;
+  }
+
+  return `
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M14.25 5.25L9.75 9H6a2.25 2.25 0 0 0-2.25 2.25v1.5A2.25 2.25 0 0 0 6 15h3.75l4.5 3.75V5.25Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>
+      <path d="M16.5 9.75l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      <path d="M21 9.75l-4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+  `;
+}
+
+function updateHubJAudioToggle() {
+  if (!hubJAudioToggle) {
+    return;
+  }
+
+  hubJAudioToggle.dataset.state = isHubJAlertSoundEnabled ? "on" : "off";
+  hubJAudioToggle.setAttribute("aria-pressed", String(isHubJAlertSoundEnabled));
+  hubJAudioToggle.setAttribute(
+    "aria-label",
+    isHubJAlertSoundEnabled ? "ปิดเสียงแจ้งเตือน Hub J" : "เปิดเสียงแจ้งเตือน Hub J"
+  );
+  hubJAudioToggle.title = isHubJAlertSoundEnabled ? "ปิดเสียงแจ้งเตือน Hub J" : "เปิดเสียงแจ้งเตือน Hub J";
+  hubJAudioToggle.innerHTML = speakerIconMarkup(isHubJAlertSoundEnabled);
+}
+
+function setHubJAlertSoundEnabled(enabled) {
+  isHubJAlertSoundEnabled = enabled;
+
+  try {
+    window.localStorage.setItem(HUB_J_AUDIO_STORAGE_KEY, enabled ? "on" : "off");
+  } catch {}
+
+  updateHubJAudioToggle();
+
+  if (enabled) {
+    unlockHubJAlertAudio();
+    setMessage(adminStatus, "เปิดเสียงแจ้งเตือน Hub J แล้ว", "success");
+    return;
+  }
+
+  hubJAlertAudio.pause();
+  hubJAlertAudio.currentTime = 0;
+  setMessage(adminStatus, "ปิดเสียงแจ้งเตือน Hub J แล้ว", "neutral");
 }
 
 function getRidersForDisplay() {
@@ -233,6 +379,102 @@ function fitMapToMarkers() {
   hasFittedBounds = true;
 }
 
+function calculateDistanceMeters(fromLat, fromLng, toLat, toLng) {
+  const earthRadius = 6371000;
+  const toRadians = (value) => (value * Math.PI) / 180;
+  const dLat = toRadians(toLat - fromLat);
+  const dLng = toRadians(toLng - fromLng);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(fromLat)) *
+      Math.cos(toRadians(toLat)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+
+  return 2 * earthRadius * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatDistanceMeters(distanceMeters) {
+  if (!Number.isFinite(distanceMeters)) {
+    return "-";
+  }
+
+  if (distanceMeters < 1000) {
+    return `${Math.round(distanceMeters)} เมตร`;
+  }
+
+  return `${(distanceMeters / 1000).toFixed(2)} กม.`;
+}
+
+function announceHubJAlert(riders) {
+  playHubJAlertSound();
+}
+
+function updateHubJAlert(riders = getRidersForDisplay()) {
+  const nearbyRiders = [];
+  const newlyEnteredRiders = [];
+  const nextState = new Map();
+
+  for (const rider of riders) {
+    if (!Number.isFinite(rider.lat) || !Number.isFinite(rider.lng)) {
+      nextState.set(rider.uid, false);
+      continue;
+    }
+
+    const distanceMeters = calculateDistanceMeters(rider.lat, rider.lng, HUB_J.lat, HUB_J.lng);
+    const isInsideZone = distanceMeters <= HUB_J.radiusMeters;
+
+    nextState.set(rider.uid, isInsideZone);
+
+    if (isInsideZone) {
+      nearbyRiders.push({
+        ...rider,
+        distanceMeters
+      });
+    }
+
+    if (isInsideZone && !riderHubZoneState.get(rider.uid)) {
+      newlyEnteredRiders.push({
+        ...rider,
+        distanceMeters
+      });
+    }
+  }
+
+  riderHubZoneState.clear();
+  nextState.forEach((value, uid) => {
+    riderHubZoneState.set(uid, value);
+  });
+
+  if (newlyEnteredRiders.length) {
+    announceHubJAlert(newlyEnteredRiders);
+  }
+
+  if (!hubJAlert) {
+    return;
+  }
+
+  if (!nearbyRiders.length) {
+    hubJAlert.textContent = `ยังไม่มีไรเดอร์เข้าใกล้ ${HUB_J.name}`;
+    hubJAlert.classList.remove("is-active");
+    return;
+  }
+
+  nearbyRiders.sort((left, right) => left.distanceMeters - right.distanceMeters);
+
+  if (nearbyRiders.length === 1) {
+    const [rider] = nearbyRiders;
+    hubJAlert.textContent = `${rider.name} อยู่ในระยะ ${formatDistanceMeters(
+      rider.distanceMeters
+    )} จาก ${HUB_J.name} ${HUB_J.alertMessage}`;
+    hubJAlert.classList.add("is-active");
+    return;
+  }
+
+  hubJAlert.textContent = `${nearbyRiders.length} ไรเดอร์อยู่ใกล้ ${HUB_J.name} กรุณาเปิดไม้กั้น`;
+  hubJAlert.classList.add("is-active");
+}
+
 function createRiderCard(rider) {
   const online = isOnline(rider.updatedAt, rider.online);
   const actionDisabled = isSavingRider || isDeletingRider;
@@ -380,13 +622,16 @@ function renderSidebar() {
 }
 
 function refreshView() {
-  for (const rider of getRidersForDisplay()) {
+  const riders = getRidersForDisplay();
+
+  for (const rider of riders) {
     upsertMarker(rider);
   }
 
   removeMissingMarkers();
   fitMapToMarkers();
   renderSidebar();
+  updateHubJAlert(riders);
 
   if (activeRiderId && !getActiveRider()) {
     activeRiderId = null;
@@ -620,6 +865,10 @@ closeRiderEditorButton?.addEventListener("click", () => {
   closeEditorModal(true);
 });
 
+hubJAudioToggle?.addEventListener("click", () => {
+  setHubJAlertSoundEnabled(!isHubJAlertSoundEnabled);
+});
+
 window.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && riderEditorModal && !riderEditorModal.hidden) {
     closeEditorModal(true);
@@ -631,7 +880,11 @@ logoutButton?.addEventListener("click", async () => {
   window.location.replace(getRoutePath("login"));
 });
 
+isHubJAlertSoundEnabled = readHubJAlertSoundPreference();
+updateHubJAudioToggle();
 initializeMap();
+window.addEventListener("pointerdown", unlockHubJAlertAudio, { once: true });
+window.addEventListener("keydown", unlockHubJAlertAudio, { once: true });
 ensureAdminAccess();
 refreshTimerId = window.setInterval(refreshView, 5000);
 

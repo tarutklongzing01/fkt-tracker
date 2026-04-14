@@ -30,7 +30,6 @@ const latestAccuracy = $("#latest-accuracy");
 const riderMessage = $("#rider-message");
 const selfStatus = $("#self-status");
 const logoutButton = $("#logout-button");
-const trackingIntervalText = $("#tracking-interval-text");
 
 let map;
 let marker;
@@ -40,12 +39,6 @@ let currentUser = null;
 let currentProfile = null;
 let isSending = false;
 let unsubscribeProfile = null;
-
-if (trackingIntervalText) {
-  trackingIntervalText.textContent = `ระบบจะส่งตำแหน่งไปยัง Firebase ทุก ${formatDurationThai(
-    TRACKING_INTERVAL_MS
-  )}หลังจากอนุญาต GPS`;
-}
 
 function initializeMap() {
   map = L.map("rider-map", {
@@ -173,7 +166,8 @@ async function sendCurrentLocation() {
       };
 
       setMessage(riderMessage, errorMessageMap[error.code] || "ไม่สามารถอ่านตำแหน่งได้", "error");
-      trackingStatus.textContent = error.code === 1 ? "ต้องอนุญาต GPS ก่อนเริ่มส่งข้อมูล" : "รออนุญาต GPS";
+      trackingStatus.textContent =
+        error.code === 1 ? "ต้องอนุญาต GPS ก่อนเริ่มส่งข้อมูล" : "รออนุญาต GPS";
       setStatusChip(selfStatus, "offline", "อ่าน GPS ไม่สำเร็จ");
 
       if (error.code === 1 && trackingTimerId) {
@@ -226,7 +220,7 @@ function handleAuth() {
       const profile = await getUserProfile(user.uid);
 
       if (!profile?.role) {
-        setMessage(riderMessage, "ไม่พบ role ของผู้ใช้นี้ใน Realtime Database", "error");
+        setMessage(riderMessage, "ไม่พบบทบาทของผู้ใช้นี้ใน Realtime Database", "error");
         return;
       }
 

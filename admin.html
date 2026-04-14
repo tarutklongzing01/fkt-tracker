@@ -49,6 +49,9 @@
         </section>
 
         <div id="admin-status" class="message-box" role="status" aria-live="polite"></div>
+        <div id="hub-j-alert" class="message-box hub-alert" role="alert" aria-live="assertive">
+          ยังไม่มีไรเดอร์เข้าใกล้ Hub J
+        </div>
 
         <section class="sidebar-list-section">
           <div class="section-head section-head--soft">
@@ -70,7 +73,17 @@
             <span class="eyebrow">Realtime Map</span>
             <h2>ตำแหน่งไรเดอร์ปัจจุบัน</h2>
           </div>
-          <div id="map-updated" class="status-chip" data-state="neutral">รอข้อมูล</div>
+          <div class="map-header__actions">
+            <button
+              id="hub-j-audio-toggle"
+              class="button hub-audio-toggle"
+              type="button"
+              aria-label="ปิดเสียงแจ้งเตือน Hub J"
+              aria-pressed="true"
+              title="ปิดเสียงแจ้งเตือน Hub J"
+            ></button>
+            <div id="map-updated" class="status-chip" data-state="neutral">รอข้อมูล</div>
+          </div>
         </header>
 
         <section class="panel-card map-panel">
