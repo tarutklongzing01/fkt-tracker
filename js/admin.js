@@ -785,7 +785,7 @@ function ensureAdminAccess() {
         return;
       }
 
-      adminWelcome.textContent = `สวัสดี ${profile.name || "แอดมิน"}`;
+      adminWelcome.textContent = "สวัสดี คุณแอดมิน";
       setMessage(
         adminStatus,
         "กำลังฟังข้อมูลไรเดอร์สดจาก Firebase Realtime Database",
